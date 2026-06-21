@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserId } from "@/lib/supabase/auth";
 
 const categorySchema = z.object({
   name: z.string().trim().min(1, "카테고리 이름을 입력하세요."),
@@ -17,17 +17,6 @@ const categorySchema = z.object({
       return Number.isFinite(parsed) ? parsed : null;
     }),
 });
-
-async function getCurrentUserId() {
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
-
-  if (error || !data?.claims?.sub) {
-    redirect("/login");
-  }
-
-  return { supabase, userId: data.claims.sub };
-}
 
 export async function createCategory(formData: FormData) {
   const { supabase, userId } = await getCurrentUserId();
@@ -53,7 +42,7 @@ export async function createCategory(formData: FormData) {
 }
 
 export async function updateCategory(formData: FormData) {
-  const { supabase } = await getCurrentUserId();
+  const { supabase, userId } = await getCurrentUserId();
   const id = Number(formData.get("id"));
   const input = categorySchema.parse({
     name: formData.get("name"),
@@ -72,7 +61,8 @@ export async function updateCategory(formData: FormData) {
       category_type: input.category_type,
       parent_id: input.parent_id,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) {
     redirect(`/categories?error=${encodeURIComponent(error.message)}`);
@@ -83,14 +73,18 @@ export async function updateCategory(formData: FormData) {
 }
 
 export async function deleteCategory(formData: FormData) {
-  const { supabase } = await getCurrentUserId();
+  const { supabase, userId } = await getCurrentUserId();
   const id = Number(formData.get("id"));
 
   if (!Number.isFinite(id)) {
     redirect("/categories?error=Invalid%20category%20id");
   }
 
-  const { error } = await supabase.from("categories").delete().eq("id", id);
+  const { error } = await supabase
+    .from("categories")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) {
     redirect(`/categories?error=${encodeURIComponent(error.message)}`);
@@ -99,4 +93,3 @@ export async function deleteCategory(formData: FormData) {
   revalidatePath("/categories");
   redirect("/categories");
 }
-

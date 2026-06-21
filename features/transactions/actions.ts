@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserId } from "@/lib/supabase/auth";
 
 const transactionSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "거래일을 선택하세요."),
@@ -20,17 +20,6 @@ const transactionSchema = z.object({
   description: z.string().trim().max(200).optional(),
   payment_method: z.enum(["cash", "card", "account"]),
 });
-
-async function getCurrentUserId() {
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
-
-  if (error || !data?.claims?.sub) {
-    redirect("/login");
-  }
-
-  return { supabase, userId: data.claims.sub };
-}
 
 export async function createTransaction(formData: FormData) {
   const { supabase, userId } = await getCurrentUserId();
@@ -63,7 +52,7 @@ export async function createTransaction(formData: FormData) {
 }
 
 export async function updateTransaction(formData: FormData) {
-  const { supabase } = await getCurrentUserId();
+  const { supabase, userId } = await getCurrentUserId();
   const id = Number(formData.get("id"));
   const input = transactionSchema.parse({
     date: formData.get("date"),
@@ -88,7 +77,8 @@ export async function updateTransaction(formData: FormData) {
       description: input.description ?? "",
       payment_method: input.payment_method,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) {
     redirect(`/transactions?error=${encodeURIComponent(error.message)}`);
@@ -100,14 +90,18 @@ export async function updateTransaction(formData: FormData) {
 }
 
 export async function deleteTransaction(formData: FormData) {
-  const { supabase } = await getCurrentUserId();
+  const { supabase, userId } = await getCurrentUserId();
   const id = Number(formData.get("id"));
 
   if (!Number.isFinite(id)) {
     redirect("/transactions?error=Invalid%20transaction%20id");
   }
 
-  const { error } = await supabase.from("transactions").delete().eq("id", id);
+  const { error } = await supabase
+    .from("transactions")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
 
   if (error) {
     redirect(`/transactions?error=${encodeURIComponent(error.message)}`);
@@ -117,4 +111,3 @@ export async function deleteTransaction(formData: FormData) {
   revalidatePath("/dashboard");
   redirect("/transactions");
 }
-
