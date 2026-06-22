@@ -24,6 +24,17 @@ CREATE TABLE transactions (
   category_id BIGINT REFERENCES categories(id) ON DELETE RESTRICT,
   description VARCHAR(200) DEFAULT '',
   payment_method VARCHAR(20) NOT NULL CHECK (payment_method IN ('cash', 'card', 'account')),
+  installment_months INT DEFAULT 0,
+  original_currency VARCHAR(3) DEFAULT 'KRW',
+  original_amount DECIMAL(12, 2),
+  source_type TEXT DEFAULT 'manual',
+  source_provider TEXT,
+  source_file_id TEXT,
+  source_row_index INT,
+  import_fingerprint TEXT,
+  occurred_at TIMESTAMP,
+  payment_due_date DATE,
+  source_metadata JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -45,6 +56,12 @@ CREATE TABLE assets (
 CREATE INDEX idx_transactions_user_date ON transactions(user_id, date DESC);
 CREATE INDEX idx_transactions_user_type ON transactions(user_id, transaction_type);
 CREATE INDEX idx_transactions_category ON transactions(category_id);
+CREATE UNIQUE INDEX idx_transactions_user_fingerprint
+  ON transactions(user_id, import_fingerprint)
+  WHERE import_fingerprint IS NOT NULL;
+CREATE INDEX idx_transactions_user_payment_due_date
+  ON transactions(user_id, payment_due_date DESC)
+  WHERE payment_due_date IS NOT NULL;
 CREATE INDEX idx_categories_user ON categories(user_id);
 CREATE INDEX idx_assets_user ON assets(user_id);
 

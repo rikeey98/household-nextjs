@@ -17,6 +17,7 @@
     "@tanstack/react-table": "latest",
     "clsx": "latest",
     "date-fns": "latest",
+    "exceljs": "^4.4.0",
     "lucide-react": "latest",
     "next": "^16.2.2",
     "papaparse": "latest",
@@ -38,6 +39,10 @@
     "postcss": "latest",
     "tailwindcss": "latest",
     "typescript": "latest"
+  },
+  "overrides": {
+    "postcss": "$postcss",
+    "uuid": "$uuid"
   },
   "engines": {
     "node": ">=20.9.0"
