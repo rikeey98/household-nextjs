@@ -20,6 +20,7 @@
     "exceljs": "^4.4.0",
     "lucide-react": "latest",
     "next": "^16.2.2",
+    "node-html-parser": "^5.3.3",
     "papaparse": "latest",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

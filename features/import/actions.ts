@@ -9,11 +9,20 @@ import {
   emptyImportSummary,
   type ImportActionState,
   type ImportPreviewRow,
+  type ImportProvider,
   initialImportState,
 } from "@/features/import/types";
-import { detectCardExcelParser } from "@/features/import/parsers";
+import {
+  detectCardExcelParser,
+  detectCardHtmlParser,
+} from "@/features/import/parsers";
 
 const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
+const PROVIDER_LABELS: Record<ImportProvider, string> = {
+  samsung: "삼성카드",
+  shinhan: "신한카드",
+};
+const importProviderSchema = z.enum(["samsung", "shinhan"]);
 
 const importSourceMetadataSchema = z
   .object({
@@ -28,7 +37,7 @@ const importSourceMetadataSchema = z
 
 const importRowSchema = z.object({
   rowKey: z.string(),
-  provider: z.literal("samsung"),
+  provider: importProviderSchema,
   sourceFileId: z.string().uuid(),
   sourceRowIndex: z.number().int().min(0),
   excelRowNumber: z.number().int().positive(),
@@ -44,7 +53,7 @@ const importRowSchema = z.object({
   description: z.string().trim().max(200),
   paymentMethod: z.literal("card"),
   installmentMonths: z.number().int().min(0),
-  originalCurrency: z.literal("KRW"),
+  originalCurrency: z.string().trim().length(3),
   originalAmount: z.number().positive().nullable(),
   approvalNumber: z.string().nullable(),
   importFingerprint: z.string().min(20),
@@ -54,7 +63,7 @@ const importRowSchema = z.object({
 });
 
 const savePayloadSchema = z.object({
-  provider: z.literal("samsung"),
+  provider: importProviderSchema,
   sourceFileId: z.string().uuid(),
   rows: z.array(importRowSchema).max(2000),
 });
@@ -78,26 +87,32 @@ export async function parseCardExcel(
   const { supabase, userId } = await getCurrentUserId();
 
   try {
-    const workbook = new ExcelJS.Workbook();
     const buffer = Buffer.from(await file.arrayBuffer());
-
-    await workbook.xlsx.load(
-      buffer as unknown as Parameters<typeof workbook.xlsx.load>[0],
-    );
-
-    const parser = detectCardExcelParser(workbook);
-    if (!parser) {
+    const html = decodePossibleHtml(buffer);
+    const htmlParser = html ? detectCardHtmlParser(html) : null;
+    if (html && !htmlParser) {
       return withMessage("지원하는 카드 이용내역 형식을 찾지 못했습니다.");
     }
 
-    const parsedRows = parser.parse(workbook, { fileName, sourceFileId });
-    const rows = await markDuplicateRows(parsedRows, supabase, userId);
+    const parsed = htmlParser
+      ? {
+          provider: htmlParser.provider,
+          label: htmlParser.label,
+          rows: htmlParser.parse(html ?? "", { fileName, sourceFileId }),
+        }
+      : await parseExcelFile(buffer, { fileName, sourceFileId });
+
+    if (!parsed) {
+      return withMessage("지원하는 카드 이용내역 형식을 찾지 못했습니다.");
+    }
+
+    const rows = await markDuplicateRows(parsed.rows, supabase, userId);
 
     return {
       ok: true,
       message: `${rows.length.toLocaleString("ko-KR")}개 행을 확인했습니다.`,
-      provider: parser.provider,
-      providerLabel: parser.label,
+      provider: parsed.provider,
+      providerLabel: parsed.label,
       fileName,
       sourceFileId,
       rows,
@@ -111,6 +126,36 @@ export async function parseCardExcel(
         : "파일을 읽지 못했습니다.",
     );
   }
+}
+
+async function parseExcelFile(
+  buffer: Buffer,
+  context: { fileName: string; sourceFileId: string },
+) {
+  const workbook = await loadWorkbook(buffer);
+  const parser = detectCardExcelParser(workbook);
+  if (!parser) return null;
+
+  return {
+    provider: parser.provider,
+    label: parser.label,
+    rows: parser.parse(workbook, context),
+  };
+}
+
+async function loadWorkbook(buffer: Buffer) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(
+    buffer as unknown as Parameters<typeof workbook.xlsx.load>[0],
+  );
+  return workbook;
+}
+
+function decodePossibleHtml(buffer: Buffer) {
+  const head = buffer.subarray(0, 4096).toString("utf8").trimStart();
+  if (!/<(?:html|table)\b/i.test(head)) return null;
+
+  return buffer.toString("utf8").replace(/^\uFEFF/, "");
 }
 
 export async function saveCardImport(
@@ -334,7 +379,7 @@ function stateFromPayload(rows: ImportPreviewRow[]): ImportActionState {
     ok: rows.length > 0,
     message: null,
     provider: firstRow?.provider ?? null,
-    providerLabel: firstRow?.provider === "samsung" ? "삼성카드" : null,
+    providerLabel: firstRow ? PROVIDER_LABELS[firstRow.provider] : null,
     fileName: null,
     sourceFileId: firstRow?.sourceFileId ?? null,
     rows,

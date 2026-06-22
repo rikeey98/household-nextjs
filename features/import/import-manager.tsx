@@ -79,7 +79,7 @@ export function ImportManager() {
                     엑셀 파일 선택
                   </span>
                   <span className="mt-1 max-w-full truncate text-xs text-[var(--muted-foreground)]">
-                    {selectedFileName ?? "XLSX 또는 XLS"}
+                    {selectedFileName ?? "삼성 XLSX 또는 신한 XLS"}
                   </span>
                 </label>
               </div>

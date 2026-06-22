@@ -18,3 +18,10 @@ export type CardExcelParser = {
     context: ParserContext,
   ) => ImportPreviewRow[];
 };
+
+export type CardHtmlParser = {
+  provider: ImportProvider;
+  label: string;
+  detect: (html: string) => boolean;
+  parse: (html: string, context: ParserContext) => ImportPreviewRow[];
+};

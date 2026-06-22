@@ -1,7 +1,7 @@
 import type { CategoryType } from "@/features/categories/types";
 import type { PaymentMethod } from "@/features/transactions/types";
 
-export type ImportProvider = "samsung";
+export type ImportProvider = "samsung" | "shinhan";
 
 export type ImportRowStatus = "ready" | "duplicate" | "skipped" | "error";
 
@@ -12,6 +12,11 @@ export type ImportSourceMetadata = {
   installmentType: string | null;
   cancelStatus: string | null;
   paymentDueDateRaw: string | null;
+  cardLabel?: string | null;
+  rawUseAmount?: number | null;
+  billingPrincipal?: number | null;
+  billingFee?: number | null;
+  installmentRound?: string | null;
 };
 
 export type ImportPreviewRow = {
@@ -29,7 +34,7 @@ export type ImportPreviewRow = {
   description: string;
   paymentMethod: PaymentMethod;
   installmentMonths: number;
-  originalCurrency: "KRW";
+  originalCurrency: string;
   originalAmount: number | null;
   approvalNumber: string | null;
   importFingerprint: string;
