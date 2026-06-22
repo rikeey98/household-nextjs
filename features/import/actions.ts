@@ -88,19 +88,14 @@ export async function parseCardExcel(
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
-    const html = decodePossibleHtml(buffer);
-    const htmlParser = html ? detectCardHtmlParser(html) : null;
-    if (html && !htmlParser) {
+    const htmlCandidates = decodePossibleHtmlCandidates(buffer);
+    const htmlParsed = parseHtmlFile(htmlCandidates, { fileName, sourceFileId });
+    if (htmlCandidates.length > 0 && !htmlParsed) {
       return withMessage("지원하는 카드 이용내역 형식을 찾지 못했습니다.");
     }
 
-    const parsed = htmlParser
-      ? {
-          provider: htmlParser.provider,
-          label: htmlParser.label,
-          rows: htmlParser.parse(html ?? "", { fileName, sourceFileId }),
-        }
-      : await parseExcelFile(buffer, { fileName, sourceFileId });
+    const parsed =
+      htmlParsed ?? (await parseExcelFile(buffer, { fileName, sourceFileId }));
 
     if (!parsed) {
       return withMessage("지원하는 카드 이용내역 형식을 찾지 못했습니다.");
@@ -120,12 +115,35 @@ export async function parseCardExcel(
       savedCount: 0,
     };
   } catch (error) {
+    console.error("Card import parsing failed", {
+      fileSize: file.size,
+      message: error instanceof Error ? error.message : String(error),
+    });
+
     return withMessage(
       error instanceof Error
         ? `파일을 읽지 못했습니다. ${error.message}`
         : "파일을 읽지 못했습니다.",
     );
   }
+}
+
+function parseHtmlFile(
+  htmlCandidates: string[],
+  context: { fileName: string; sourceFileId: string },
+) {
+  for (const html of htmlCandidates) {
+    const parser = detectCardHtmlParser(html);
+    if (!parser) continue;
+
+    return {
+      provider: parser.provider,
+      label: parser.label,
+      rows: parser.parse(html, context),
+    };
+  }
+
+  return null;
 }
 
 async function parseExcelFile(
@@ -151,11 +169,36 @@ async function loadWorkbook(buffer: Buffer) {
   return workbook;
 }
 
-function decodePossibleHtml(buffer: Buffer) {
-  const head = buffer.subarray(0, 4096).toString("utf8").trimStart();
-  if (!/<(?:html|table)\b/i.test(head)) return null;
+function decodePossibleHtmlCandidates(buffer: Buffer) {
+  return decodeTextCandidates(buffer).filter(looksLikeHtml);
+}
 
-  return buffer.toString("utf8").replace(/^\uFEFF/, "");
+function decodeTextCandidates(buffer: Buffer) {
+  const candidates: string[] = [];
+
+  addTextCandidate(candidates, buffer.toString("utf8"));
+
+  for (const encoding of ["utf-16le", "euc-kr"]) {
+    try {
+      addTextCandidate(
+        candidates,
+        new TextDecoder(encoding).decode(buffer as unknown as BufferSource),
+      );
+    } catch {
+      // TextDecoder support can vary by runtime; UTF-8 remains the default path.
+    }
+  }
+
+  return candidates;
+}
+
+function addTextCandidate(candidates: string[], text: string) {
+  const normalized = text.replace(/^\uFEFF/, "");
+  if (!candidates.includes(normalized)) candidates.push(normalized);
+}
+
+function looksLikeHtml(text: string) {
+  return /<(?:html|table|body|meta)\b/i.test(text.slice(0, 20000));
 }
 
 export async function saveCardImport(
