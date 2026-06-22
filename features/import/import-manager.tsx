@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo } from "react";
+import { useActionState, useMemo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -20,7 +20,6 @@ import {
 } from "@/features/import/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils/cn";
 
@@ -32,6 +31,7 @@ const statusLabels: Record<ImportRowStatus, string> = {
 };
 
 export function ImportManager() {
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [parseState, parseAction, isParsing] = useActionState(
     parseCardExcel,
     initialImportState,
@@ -58,14 +58,30 @@ export function ImportManager() {
             <form action={parseAction} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="card-file">카드 이용내역</Label>
-                <Input
+                <input
                   id="card-file"
                   name="file"
                   type="file"
                   accept=".xlsx,.xls"
-                  required
-                  className="pt-2 file:mr-3 file:rounded file:border-0 file:bg-[var(--muted)] file:px-3 file:py-1 file:text-sm file:text-[#263029]"
+                  className="sr-only"
+                  onChange={(event) => {
+                    setSelectedFileName(event.target.files?.[0]?.name ?? null);
+                  }}
                 />
+                <label
+                  htmlFor="card-file"
+                  className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-[var(--border)] bg-[#fbfaf6] px-4 py-5 text-center transition-colors hover:border-[var(--primary)] hover:bg-[#f4f1e8]"
+                >
+                  <span className="flex size-11 items-center justify-center rounded-md bg-[var(--primary)] text-[var(--primary-foreground)]">
+                    <Upload className="size-5" />
+                  </span>
+                  <span className="mt-3 text-sm font-semibold text-[#263029]">
+                    엑셀 파일 선택
+                  </span>
+                  <span className="mt-1 max-w-full truncate text-xs text-[var(--muted-foreground)]">
+                    {selectedFileName ?? "XLSX 또는 XLS"}
+                  </span>
+                </label>
               </div>
 
               <Button type="submit" disabled={isParsing} className="w-full gap-2">

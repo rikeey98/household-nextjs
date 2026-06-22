@@ -14,6 +14,7 @@
 - 2026-06-22 — 삼성카드 샘플 엑셀 구조 확인: `■ 국내이용내역` 시트, 31개 데이터 행, 승인일자/승인시각/가맹점명/승인금액/승인번호/취소여부/결제일 컬럼.
 - 2026-06-22 — `exceljs` 의존성 추가.
 - 2026-06-22 — 삼성카드 파서, import 서버 액션, 미리보기/저장 UI, 결제일/metadata DB 마이그레이션 추가.
+- 2026-06-23 — 파일 input이 업로드 버튼처럼 보이지 않는 문제를 명확한 파일 선택 드롭존 UI로 수정.
 
 ## 변경 파일
 
@@ -24,6 +25,7 @@
 | `db/schema.sql`, `db/migrations/002_import_payment_due_date_metadata.sql` | 결제일 및 원본 metadata 저장 컬럼 반영 |
 | `docs/dev/TODO.md` | Phase 2 가져오기 진행 상태 갱신 |
 | `package.json`, `package-lock.json` | `exceljs` 추가 |
+| `features/import/import-manager.tsx` | 파일 선택 드롭존 UI 개선 |
 
 ## 결정 · 트레이드오프
 
