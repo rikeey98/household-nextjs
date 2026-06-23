@@ -1,9 +1,9 @@
 import type ExcelJS from "exceljs";
 import type { CardExcelParser, CardHtmlParser } from "./types";
 import { samsungCardParser } from "./samsung";
-import { shinhanCardHtmlParser } from "./shinhan";
+import { shinhanCardExcelParser, shinhanCardHtmlParser } from "./shinhan";
 
-const parsers: CardExcelParser[] = [samsungCardParser];
+const parsers: CardExcelParser[] = [shinhanCardExcelParser, samsungCardParser];
 const htmlParsers: CardHtmlParser[] = [shinhanCardHtmlParser];
 
 export function detectCardExcelParser(workbook: ExcelJS.Workbook) {

@@ -26,6 +26,7 @@
 | 6 | 신한카드 샘플 파싱 | HTML형 `.xls` 명세서를 임시 컴파일된 파서로 실행 | 16개 거래, 납부 합계 323,415원 | ✅ 16행 ready, 합계 323,415원 |
 | 7 | 신한카드 해외 이용 금액 | CLAUDE/PlayStation 행 metadata 확인 | 원금+수수료 기준 저장 | ✅ 33,042원 / 31,653원 |
 | 8 | HTML형 `.xls` 감지 보강 | `npm run lint && npm run typecheck && npm run build` | 다중 인코딩 후보 처리 후 빌드 통과 | ✅ |
+| 9 | 신한카드 이용내역 조회 XLSX | `일시불+할부_카드이용내역조회.xlsx`를 임시 컴파일된 파서로 실행 | 신한 provider, 취소 행 제외 | ✅ 282행, 280행 ready, 2행 skipped |
 
 ## 발견된 이슈
 
