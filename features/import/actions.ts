@@ -18,6 +18,7 @@ import {
 } from "@/features/import/parsers";
 
 const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
+const FINGERPRINT_LOOKUP_CHUNK_SIZE = 50;
 const PROVIDER_LABELS: Record<ImportProvider, string> = {
   samsung: "삼성카드",
   shinhan: "신한카드",
@@ -101,17 +102,23 @@ export async function parseCardExcel(
       return withMessage("지원하는 카드 이용내역 형식을 찾지 못했습니다.");
     }
 
-    const rows = await markDuplicateRows(parsed.rows, supabase, userId);
+    const duplicateResult = await markDuplicateRows(
+      parsed.rows,
+      supabase,
+      userId,
+    );
 
     return {
       ok: true,
-      message: `${rows.length.toLocaleString("ko-KR")}개 행을 확인했습니다.`,
+      message:
+        duplicateResult.message ??
+        `${duplicateResult.rows.length.toLocaleString("ko-KR")}개 행을 확인했습니다.`,
       provider: parsed.provider,
       providerLabel: parsed.label,
       fileName,
       sourceFileId,
-      rows,
-      summary: summarize(rows),
+      rows: duplicateResult.rows,
+      summary: summarize(duplicateResult.rows),
       savedCount: 0,
     };
   } catch (error) {
@@ -232,13 +239,20 @@ export async function saveCardImport(
   }
 
   const fingerprints = [...new Set(readyRows.map((row) => row.importFingerprint))];
-  const existingFingerprints = await findExistingFingerprints(
+  const existingFingerprints = await findExistingFingerprintsSafe(
     supabase,
     userId,
     fingerprints,
   );
+  if (!existingFingerprints.ok) {
+    return {
+      ...stateFromPayload(parsedPayload.payload.rows),
+      message: existingFingerprints.message,
+    };
+  }
+
   const rowsToInsert = readyRows.filter(
-    (row) => !existingFingerprints.has(row.importFingerprint),
+    (row) => !existingFingerprints.values.has(row.importFingerprint),
   );
 
   if (rowsToInsert.length === 0) {
@@ -335,26 +349,56 @@ async function markDuplicateRows(
   const fingerprints = rowsWithFileDuplicates
     .filter((row) => row.status === "ready")
     .map((row) => row.importFingerprint);
-  const existingFingerprints = await findExistingFingerprints(
+  const existingFingerprints = await findExistingFingerprintsSafe(
     supabase,
     userId,
     fingerprints,
   );
+  if (!existingFingerprints.ok) {
+    return {
+      rows: rowsWithFileDuplicates,
+      message: existingFingerprints.message,
+    };
+  }
 
-  return rowsWithFileDuplicates.map((row) => {
-    if (
-      row.status === "ready" &&
-      existingFingerprints.has(row.importFingerprint)
-    ) {
-      return {
-        ...row,
-        status: "duplicate" as const,
-        statusReason: "이미 저장된 거래",
-      };
-    }
+  return {
+    rows: rowsWithFileDuplicates.map((row) => {
+      if (
+        row.status === "ready" &&
+        existingFingerprints.values.has(row.importFingerprint)
+      ) {
+        return {
+          ...row,
+          status: "duplicate" as const,
+          statusReason: "이미 저장된 거래",
+        };
+      }
 
-    return row;
-  });
+      return row;
+    }),
+    message: null,
+  };
+}
+
+async function findExistingFingerprintsSafe(
+  supabase: Awaited<ReturnType<typeof getCurrentUserId>>["supabase"],
+  userId: string,
+  fingerprints: string[],
+) {
+  try {
+    return {
+      ok: true as const,
+      values: await findExistingFingerprints(supabase, userId, fingerprints),
+    };
+  } catch (error) {
+    const message = `파일은 읽었지만 기존 거래 중복 검사를 완료하지 못했습니다. ${errorMessage(error)}`;
+    console.error("Card import duplicate check failed", {
+      fingerprintCount: fingerprints.length,
+      message: errorMessage(error),
+    });
+
+    return { ok: false as const, message };
+  }
 }
 
 async function findExistingFingerprints(
@@ -365,17 +409,42 @@ async function findExistingFingerprints(
   const uniqueFingerprints = [...new Set(fingerprints)];
   if (uniqueFingerprints.length === 0) return new Set<string>();
 
-  const { data } = await supabase
-    .from("transactions")
-    .select("import_fingerprint")
-    .eq("user_id", userId)
-    .in("import_fingerprint", uniqueFingerprints);
+  const values = new Set<string>();
 
-  return new Set(
-    (data ?? [])
+  for (const chunk of chunkArray(
+    uniqueFingerprints,
+    FINGERPRINT_LOOKUP_CHUNK_SIZE,
+  )) {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("import_fingerprint")
+      .eq("user_id", userId)
+      .in("import_fingerprint", chunk);
+
+    if (error) throw error;
+
+    for (const value of (data ?? [])
       .map((row) => row.import_fingerprint)
-      .filter((value): value is string => typeof value === "string"),
-  );
+      .filter((value): value is string => typeof value === "string")) {
+      values.add(value);
+    }
+  }
+
+  return values;
+}
+
+function chunkArray<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function summarize(rows: ImportPreviewRow[]) {
