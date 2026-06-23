@@ -28,6 +28,7 @@
 | 8 | HTML형 `.xls` 감지 보강 | `npm run lint && npm run typecheck && npm run build` | 다중 인코딩 후보 처리 후 빌드 통과 | ✅ |
 | 9 | 신한카드 이용내역 조회 XLSX | `일시불+할부_카드이용내역조회.xlsx`를 임시 컴파일된 파서로 실행 | 신한 provider, 취소 행 제외 | ✅ 282행, 280행 ready, 2행 skipped |
 | 10 | 대량 중복 검사 | 280개 ready 행 기준 fingerprint 조회 chunk 처리 코드 검증 | 긴 `.in(...)` URL 방지 | ✅ lint/typecheck/build 통과 |
+| 11 | 신한 HTML 파서 import | Vercel 로그 `w is not a function` 확인 후 default import로 변경 | HTML형 `.xls` 파싱 유지 | ✅ 1월 명세서 16행 ready, 빌드 통과 |
 
 ## 발견된 이슈
 

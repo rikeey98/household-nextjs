@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import type ExcelJS from "exceljs";
-import { parse, type HTMLElement } from "node-html-parser";
+import parseHtml from "node-html-parser";
+import type { HTMLElement } from "node-html-parser";
 import type { ImportPreviewRow } from "@/features/import/types";
 import type { CardExcelParser, CardHtmlParser, ParserContext } from "./types";
 import {
@@ -88,7 +89,7 @@ export const shinhanCardHtmlParser: CardHtmlParser = {
     );
   },
   parse(html, context) {
-    const root = parse(html);
+    const root = parseHtml(html);
     const usageTable = findUsageTable(root);
     if (!usageTable) return [];
 

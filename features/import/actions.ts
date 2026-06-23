@@ -123,8 +123,10 @@ export async function parseCardExcel(
     };
   } catch (error) {
     console.error("Card import parsing failed", {
+      fileName,
       fileSize: file.size,
-      message: error instanceof Error ? error.message : String(error),
+      message: errorMessage(error),
+      stack: error instanceof Error ? error.stack : null,
     });
 
     return withMessage(

@@ -19,6 +19,7 @@
 - 2026-06-23 — 신한카드 HTML형 `.xls` 감지를 UTF-8 단일 경로에서 다중 인코딩 후보 기반으로 보강.
 - 2026-06-24 — 신한카드 `일시불+할부_카드이용내역조회.xlsx` 양식을 신한 provider로 인식하도록 XLSX 파서 추가.
 - 2026-06-24 — 대량 import 행에서 Supabase 중복 검사 URL이 길어지지 않도록 fingerprint 조회를 chunk 처리.
+- 2026-06-24 — Vercel 번들에서 `node-html-parser` named import가 함수로 해석되지 않는 문제를 default import로 수정.
 
 ## 변경 파일
 
